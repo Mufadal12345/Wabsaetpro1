@@ -3,863 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بوابة متحف الفكر وادارة المحتوى (Firebase)</title>
-    <!-- تضمين Tailwind CSS -->
+    <title>متحف الفكر - كامل البيانات</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- تضمين مكتبات Firebase SDK الضرورية -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, onSnapshot, collection, query, where, getDocs, orderBy, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // إعداد مستوى سجل الأخطاء للمساعدة في التصحيح
-        setLogLevel('Debug');
-        
-        // =========================================================================
-        // === الخطوة 1: أدخل بيانات تهيئة Firebase الخاصة بمشروعك هنا (مطلوب للنشر) ===
-        // =========================================================================
-        const YOUR_FIREBASE_CONFIG = {
-            apiKey: "YOUR_FIREBASE_API_KEY_HERE",
-            authDomain: "YOUR_FIREBASE_AUTH_DOMAIN_HERE",
-            projectId: "YOUR_FIREBASE_PROJECT_ID_HERE",
-            storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET_HERE",
-            messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID_HERE",
-            appId: "YOUR_FIREBASE_APP_ID_HERE"
-        };
-        
-        const appId = YOUR_FIREBASE_CONFIG.projectId || 'default-app-id'; // Project ID يستخدم كمعرف للتطبيق
-        const firebaseConfig = YOUR_FIREBASE_CONFIG;
-        const initialAuthToken = null; // نعتمد على تسجيل الدخول المجهول/النموذج
-
-        if (firebaseConfig.apiKey === "YOUR_FIREBASE_API_KEY_HERE" || !firebaseConfig.projectId) {
-            console.error("Firebase config is missing or using placeholder values!");
-            document.getElementById('loader').innerHTML = '<p class="text-rose-600 text-lg">خطأ في إعداد Firebase. الرجاء استبدال القيم الافتراضية ببيانات مشروعك.</p>';
-            return;
-        }
-
-        // تهيئة Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
-        // تحديد مسارات Firestore (بناءً على قواعد الأمان)
-        window.FIRESTORE_PATHS = {
-            SECTIONS: `artifacts/${appId}/public/data/sections`,
-            REGISTRATIONS: `artifacts/${appId}/public/data/registrations`,
-        };
-
-        window.DB = db;
-        window.AUTH = auth;
-
-        // وظيفة تسجيل الدخول الأولية
-        async function initialAuthAndLoad() {
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Firebase Authentication failed:", error);
-                window.globalApp.displayError('فشل في تسجيل الدخول الأولي. تحقق من اتصالك.');
-                document.getElementById('loader').textContent = 'فشل التحميل.';
-            }
-        }
-        
-        // الانتظار حتى يتم تحميل حالة المصادقة
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                window.globalApp.isAuthReady = true;
-                window.globalApp.userId = user.uid;
-                console.log("Firebase ready. User ID:", user.uid);
-            } else {
-                console.log("User is not signed in.");
-                window.globalApp.isAuthReady = true;
-            }
-        });
-        
-        // بدء عملية المصادقة فوراً عند تحميل ملف الـ module
-        initialAuthAndLoad();
-    </script>
     <style>
-        body {
-            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-        }
-        /* الأزرق الليلي مع تدرج خفيف للون الرملي الفاتح */
-        .main-bg {
-             background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%); /* Deep Indigo to Slate Black */
-        }
-        
-        /* تنسيق المحتوى للعرض */
-        .section-body-rendered p { margin-bottom: 1rem; }
-        .section-body-rendered strong { font-weight: bold; }
-        .section-body-rendered ul { list-style: disc; margin-right: 1.5rem; padding-right: 0.5rem; margin-bottom: 1rem;}
-        
-        /* لون الإضاءة للمحتوى (Sand Color Accent) */
-        .highlight-quote {
-            border-right: 4px solid #f59e0b; /* Amber */
-            background-color: #fffbeb; /* Lightest Sand/Cream */
-            padding: 1rem;
-            margin-top: 1rem;
-            margin-bottom: 1rem;
-            font-size: 1.25rem;
-            font-style: italic;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-            color: #1f2937;
-        }
-        .editor-textarea { min-height: 150px; }
-        .error-flash { transition: opacity 0.5s ease-out; }
-        
-        /* تنسيق تبويب المدير (Velvet Red Accent) */
-        .tab-button.active {
-            border-color: #be123c; /* rose-700 */
-            color: #be123c;
-            background-color: #fce7f3; /* rose-50 */
-        }
-        
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 0.75rem; text-align: right; border-bottom: 1px solid #e5e7eb; }
-        th { background-color: #f3f4f6; font-weight: 600; }
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .main-bg { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); }
+        .section-content p { margin-bottom: 1rem; line-height: 1.8; }
+        .highlight-quote { border-right: 4px solid #f59e0b; background: #fffbeb; padding: 1rem; margin: 1rem 0; font-style: italic; color: #1f2937; }
     </style>
 </head>
 <body class="main-bg min-h-screen flex items-center justify-center p-4">
 
-    <!-- App Container: Sand Color Background -->
-    <div id="app" class="w-full max-w-5xl bg-stone-100 shadow-2xl rounded-xl p-6 md:p-10 transition-all duration-500">
+    <div id="app" class="w-full max-w-3xl bg-stone-100 shadow-2xl rounded-2xl p-6 md:p-10 relative">
         
-        <!-- رسالة الخطأ العامة -->
-        <div id="global-error-message" class="hidden fixed top-0 right-0 m-4 p-3 bg-rose-700 text-white rounded-lg shadow-xl z-50 error-flash opacity-0">
-            <p id="global-error-text" class="font-semibold"></p>
-        </div>
+        <div id="toast" class="hidden fixed top-5 right-5 p-4 rounded-lg shadow-xl z-50 text-white font-bold"></div>
 
-        <!-- Loader / مؤشر التحميل -->
-        <div id="loader" class="flex flex-col items-center justify-center h-96 text-gray-700">
-            <svg class="animate-spin h-8 w-8 text-indigo-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="mt-4 text-lg">جارِ تهيئة Firebase والمصادقة...</p>
-        </div>
-
-        <!-- نظام التسجيل (Registration View) - Midnight Blue Accent -->
-        <div id="registration-view" class="hidden">
-            <h1 class="text-3xl font-extrabold text-indigo-900 mb-6 text-center">انضم إلى متحف الفكر</h1>
-            <p class="text-gray-600 mb-8 text-center">أدخل بياناتك لتبدأ في استكشاف أثرك الفكري.</p>
-            
-            <form id="registration-form" class="space-y-6">
-                <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700">الاسم</label>
-                    <input type="text" id="name" name="name" required class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-700 focus:border-indigo-700 transition duration-150">
-                </div>
-                
-                <div>
-                    <label for="specialty" class="block text-sm font-medium text-gray-700">التخصص</label>
-                    <input type="text" id="specialty" name="specialty" required class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-700 focus:border-indigo-700 transition duration-150">
-                </div>
-                
-                <button type="submit" id="reg-submit-btn" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-lg font-medium text-white bg-indigo-800 hover:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-700 transition duration-150">
-                    تسجيل الدخول والاستكشاف
-                </button>
+        <div id="login-view">
+            <h1 class="text-3xl font-bold text-blue-900 text-center mb-2">🏛️ متحف الفكر</h1>
+            <p class="text-center text-gray-500 mb-8">أدخل بياناتك لاستكشاف المحتوى</p>
+            <form id="login-form" class="space-y-4">
+                <input type="text" id="user-name" placeholder="الاسم" required class="w-full p-4 border rounded-xl outline-none focus:ring-2 ring-blue-500">
+                <input type="text" id="user-spec" placeholder="التخصص (أو كود المدير)" required class="w-full p-4 border rounded-xl outline-none focus:ring-2 ring-blue-500">
+                <button type="submit" id="btn-login" class="w-full bg-blue-800 text-white p-4 rounded-xl font-bold hover:bg-blue-900 transition shadow-lg">دخول</button>
             </form>
-            <p id="reg-error-message" class="text-rose-600 text-sm mt-4 text-center hidden"></p>
         </div>
 
-        <!-- الواجهة الرئيسية (Home View - للمستخدم العادي) - Midnight Blue Accent -->
         <div id="home-view" class="hidden">
-            <div class="flex justify-between items-center mb-8 pb-4 border-b border-gray-300">
-                <h1 class="text-3xl font-extrabold text-indigo-900">أهلاً بك يا <span id="user-display-name">...</span>!</h1>
-                <button onclick="window.location.reload();" class="text-sm text-indigo-700 hover:text-indigo-900 font-medium">
-                    تسجيل الخروج/العودة للقائمة
-                </button>
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 class="text-xl font-bold text-blue-900">مرحباً، <span id="display-name" class="text-blue-600"></span></h2>
+                <button onclick="location.reload()" class="text-red-500 text-sm">خروج</button>
+            </div>
+            
+            <div id="sections-menu" class="space-y-3">
+                <p class="text-center text-gray-400 animate-pulse">جاري تحميل البيانات من Firebase...</p>
             </div>
 
-            <div id="main-menu" class="space-y-3">
-                <div class="text-center mb-8 p-4 bg-stone-200 rounded-lg shadow-inner">
-                    <h2 class="text-3xl font-extrabold text-indigo-900">🎨✨ متحف الفكر</h2>
-                    <p class="text-lg text-gray-600 mt-1">حيث تولد الأفكار وتبقى خالدة ✨</p>
-                </div>
-                <div id="dynamic-sections-list">
-                    <!-- سيتم ملؤها بواسطة JS -->
-                </div>
-            </div>
-
-            <!-- Sand Background for content section -->
-            <div id="section-content" class="hidden bg-stone-200 p-6 rounded-lg shadow-inner">
-                <h2 id="section-title" class="text-3xl font-bold text-gray-800 mb-4 border-b pb-2 border-gray-400"></h2>
-                <div id="section-body" class="text-gray-700 leading-relaxed text-lg text-right section-body-rendered"></div>
-                <!-- Button: Midnight Blue -->
-                <button onclick="window.globalApp.changeView('main-menu')" class="mt-8 py-2 px-4 bg-indigo-800 text-white rounded-lg hover:bg-indigo-900 transition duration-150">
-                    العودة للقائمة الرئيسية
-                </button>
+            <div id="section-detail" class="hidden">
+                <button onclick="showMenu()" class="text-blue-600 mb-4 flex items-center"><span>← العودة للقائمة</span></button>
+                <h1 id="detail-title" class="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-amber-500 pb-2"></h1>
+                <div id="detail-body" class="section-content text-gray-700 text-lg"></div>
             </div>
         </div>
 
-        <!-- واجهة الإدارة والمحتوى (Management View - للمدير) - Velvet Red Accent -->
-        <div id="management-view" class="hidden">
-            <div class="flex justify-between items-center mb-8 pb-4 border-b border-rose-200">
-                <h1 class="text-3xl font-extrabold text-rose-800">🔐 لوحة إدارة المحتوى</h1>
-                <button onclick="window.location.reload();" class="text-sm text-rose-700 hover:text-rose-900 font-medium">
-                    تسجيل الخروج
-                </button>
-            </div>
-            
-            <!-- أزرار التبويبات -->
-            <div class="flex mb-6 border-b border-gray-300">
-                <button id="tab-content" onclick="window.globalApp.showAdminTab('content')" class="tab-button active py-2 px-4 border-b-2 border-transparent hover:border-rose-700 transition duration-150 text-rose-700 font-semibold">
-                    إدارة المحتوى والأقسام
-                </button>
-                <button id="tab-participants" onclick="window.globalApp.showAdminTab('participants')" class="tab-button py-2 px-4 border-b-2 border-transparent hover:border-rose-700 transition duration-150 text-gray-600 font-semibold">
-                    بيانات المشاركين (<span id="participants-count">0</span>)
-                </button>
-            </div>
-            
-            <!-- محتوى تبويب إدارة الأقسام -->
-            <div id="admin-content-tab" class="admin-tab">
-                 <!-- Button: Velvet Red -->
-                 <button onclick="window.globalApp.openEditorModal('new')" class="mb-6 py-2 px-4 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition duration-150 shadow-md">
-                    + إضافة قسم جديد
-                </button>
-                <div class="space-y-3" id="editable-sections-list">
-                    <p class="text-center text-gray-500">جاري تحميل الأقسام...</p>
+        <div id="admin-view" class="hidden">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 class="text-xl font-bold text-rose-800">🔐 لوحة المدير</h2>
+                <div class="flex gap-2">
+                    <button onclick="showMembers()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">عرض المنضمين</button>
+                    <button onclick="location.reload()" class="text-gray-500 text-sm">خروج</button>
                 </div>
             </div>
-
-            <!-- محتوى تبويب بيانات المشاركين -->
-            <div id="admin-participants-tab" class="admin-tab hidden">
-                <h2 class="text-xl font-bold text-rose-800 mb-4">قائمة بيانات جميع الزوار المسجلين</h2>
-                <div id="participants-table-container" class="bg-white shadow-lg rounded-lg overflow-hidden">
-                    <table id="participants-table">
-                        <thead>
-                            <tr>
-                                <th>الاسم</th>
-                                <th>التخصص</th>
-                                <th>تاريخ التسجيل</th>
-                            </tr>
-                        </thead>
-                        <tbody id="participants-table-body">
-                            <tr><td colspan="3" class="text-center text-gray-500">جاري تحميل البيانات...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
+            <div id="admin-sections" class="space-y-2"></div>
         </div>
+    </div>
 
-        <!-- نموذج التعديل (Modal/Form) -->
-        <div id="editor-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div class="bg-stone-100 rounded-xl shadow-2xl w-full max-w-2xl p-6 relative overflow-y-auto max-h-screen">
-                <h2 id="editor-title-text" class="text-2xl font-bold text-indigo-900 mb-4 border-b pb-2">تعديل القسم</h2>
-                <form id="section-editor-form" class="space-y-4">
-                    <input type="hidden" id="editor-doc-id">
-                    <input type="hidden" id="editor-type">
-                    
-                    <div>
-                        <label for="editor-menu-title" class="block text-sm font-medium text-gray-700">عنوان القائمة (للاختصار)</label>
-                        <input type="text" id="editor-menu-title" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-700 focus:border-indigo-700">
-                    </div>
-
-                    <div>
-                        <label for="editor-full-title" class="block text-sm font-medium text-gray-700">العنوان الكامل (داخل القسم)</label>
-                        <input type="text" id="editor-full-title" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-700 focus:border-indigo-700">
-                    </div>
-                    
-                    <div id="dynamic-editor-fields" class="space-y-4 border p-4 rounded-lg bg-stone-200">
-                        <!-- حقول التعديل يتم توليدها هنا -->
-                    </div>
-                    
-                    <div class="flex justify-end space-x-3 space-x-reverse">
-                        <button type="button" onclick="window.globalApp.closeEditorModal()" class="py-2 px-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-150">إلغاء</button>
-                         <!-- Button: Midnight Blue -->
-                        <button type="submit" id="editor-save-btn" class="py-2 px-4 bg-indigo-800 text-white rounded-lg hover:bg-indigo-900 transition duration-150">حفظ التعديلات</button>
-                    </div>
-                </form>
-                
-                <p id="modal-error-message" class="text-rose-600 text-sm mt-4 text-center hidden"></p>
-            </div>
+    <div id="members-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 max-h-[80vh] flex flex-col shadow-2xl">
+            <h3 class="text-xl font-bold mb-4 border-b pb-2">قائمة الأعضاء المنضمين</h3>
+            <div id="members-list" class="overflow-y-auto flex-1 text-sm space-y-2"></div>
+            <button onclick="document.getElementById('members-modal').classList.add('hidden')" class="mt-4 bg-gray-100 p-2 rounded-lg w-full font-bold">إغلاق</button>
         </div>
     </div>
 
     <script type="module">
-        import { doc, setDoc, collection, onSnapshot, addDoc, getDocs, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, getDocs, addDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // ==========================================================
-        // === الخطوة 2: قم بتعديل بيانات المدير (لزيادة الأمان) ===
-        // ==========================================================
-
-        const ADMIN_NAME = 'YOUR_ADMIN_NAME_HERE'; // قم بتعيين اسم مستخدم المدير هنا
-        const ADMIN_SPECIALTY = 'YOUR_ADMIN_PASSWORD_HERE'; // قم بتعيين كلمة المرور/المفتاح هنا
-
-        window.globalApp = {
-            isAuthReady: false,
-            userId: null,
-            sectionsData: [],
-            participantsData: [],
-            currentAdminTab: 'content',
-            
-            // تعريف القوالب كما كانت في الكود السابق
-            templates: {
-                'basic_highlight': {
-                    editorFields: [
-                        { key: 'p1', label: 'الفقرة الافتتاحية', type: 'textarea' },
-                        { key: 'p2', label: 'الفقرة الثانية', type: 'textarea' },
-                        { key: 'p3_highlight', label: 'الجملة البارزة والملخصة (ستظهر بخط عريض وبارز)', type: 'textarea' },
-                        { key: 'p4', label: 'فقرة الختام', type: 'textarea' }
-                    ],
-                    render: (fields) => `
-                        <p class="text-xl">${fields.p1}</p>
-                        <p class="mt-4">${fields.p2}</p>
-                        <!-- Midnight Blue Heading + Amber Accent -->
-                        <p class="mt-4 text-2xl font-extrabold text-indigo-900 leading-snug border-b-2 border-amber-500 pb-2">${fields.p3_highlight}</p>
-                        <p class="mt-4 text-lg text-amber-600">${fields.p4}</p>
-                    `
-                },
-                'list_items': {
-                     editorFields: [
-                        { key: 'intro', label: 'نص المقدمة (قبل القائمة)', type: 'textarea' },
-                        { key: 'listTitle', label: 'عنوان القائمة الفرعي', type: 'input' },
-                        { key: 'listItems', label: 'عناصر القائمة (ضع كل عنصر في سطر جديد)', type: 'textarea', placeholder: 'العنصر الأول\nالعنصر الثاني\n...' }
-                    ],
-                    render: (fields) => {
-                        const items = (fields.listItems || '').split('\n').filter(item => item.trim() !== '');
-                        const iconList = ['✍️', '🎨', '💬', '📚', '⭐', '💎', '💡', '🏆'];
-                        let listHtml = items.map((item, index) => {
-                            const icon = iconList[index % iconList.length];
-                            // Midnight Blue Icon
-                            return `<li class="flex items-start text-lg"><span class="ml-2 text-2xl text-indigo-700">${icon}</span> <span class="font-medium">${item.trim()}</span></li>`;
-                        }).join('');
-
-                        return `
-                            <p class="text-xl">${fields.intro}</p>
-                            <p class="mt-4 font-bold text-lg">${fields.listTitle}</p>
-                            <ul class="space-y-3 list-none pr-0">${listHtml}</ul>
-                        `;
-                    }
-                },
-                'quote_block': {
-                    editorFields: [
-                        { key: 'p1', label: 'الفقرة الأولى', type: 'textarea' },
-                        { key: 'p2', label: 'الفقرة الثانية (تمهيد للاقتباس)', type: 'textarea' },
-                        { key: 'quote', label: 'الاقتباس الرئيسي (سيظهر في إطار بارز)', type: 'textarea' }
-                    ],
-                    render: (fields) => `
-                        <p class="text-xl">${fields.p1}</p>
-                        <p class="mt-4 text-lg">${fields.p2}</p>
-                        <blockquote class="highlight-quote">${fields.quote}</blockquote>
-                    `
-                },
-                'final_call': {
-                     editorFields: [
-                        { key: 'call_title', label: 'جملة الدعوة الرئيسية (ستظهر بخط عريض)', type: 'textarea' },
-                        { key: 'call_subtitle', label: 'جملة التشجيع (أسفل الجملة الرئيسية)', type: 'textarea' },
-                        { key: 'final_signature', label: 'عبارة الختام الرئيسية', type: 'input' }
-                    ],
-                    render: (fields) => `
-                        <!-- Sand Background with Midnight Blue Accent -->
-                        <div class="p-6 bg-stone-200 rounded-xl shadow-lg text-center">
-                            <p class="text-3xl font-extrabold mb-4 leading-tight text-indigo-900">${fields.call_title}</p>
-                            <p class="text-xl font-light italic text-gray-700">${fields.call_subtitle}</p>
-                        </div>
-                        <p class="mt-8 text-2xl font-extrabold text-indigo-900 text-center">🎓 ${fields.final_signature}</p>
-                    `
-                }
-            },
-            
-            // البيانات الأولية لملء قاعدة البيانات عند الإطلاق الأول
-            initialSectionsData: [
-                { id: 'sec-1', order: 1, menuTitle: '🧭 لماذا هذا المشروع مهم؟', title: '🧭 لماذا هذا المشروع مهم؟', type: 'basic_highlight', 
-                  fields: { 
-                      p1: "في كل طالب، هناك عالم غير مكتشف: فكرة عميقة، لوحة لم تُعرض، أو كلمة لم تجد من يسمعها.", 
-                      p2: "متحف الفكر ليس مشروعًا عاديًا…",
-                      p3_highlight: "إنه منصة تصنع التاريخ الشخصي والفكري لكل طالب.",
-                      p4: "هنا، نُحوّل الأفكار الصامتة إلى أثر خالد داخل الجامعة."
-                  }},
-                { id: 'sec-2', order: 2, menuTitle: '🏛️ ما هو متحف الفكر؟', title: '🏛️ ما هو متحف الفكر؟', type: 'list_items',
-                  fields: { 
-                      intro: "هو مساحة فكرية حرة داخل الجامعة — زاوية أو جدار أو قاعة — تجمع بين الفلسفة، الفن، والإبداع.", 
-                      listTitle: "مكان يُعبّر فيه الطلاب عن ذواتهم من خلال:",
-                      listItems: "تأملاتهم وأفكارهم.\nلوحاتهم ورسوماتهم الرمزية.\نإقتباساتهم ومقالاتهم القصيرة.\nأسئلتهم الوجودية ورسائلهم للأجيال القادمة."
-                  }},
-                { id: 'sec-3', order: 3, menuTitle: '💡 ما الذي يجعل هذا المشروع مختلفًا؟', title: '💡 ما الذي يجعل هذا المشروع مختلفًا؟', type: 'quote_block',
-                  fields: { 
-                      p1: "لأنه يمسّ جوهر الإنسان.", 
-                      p2: "نحن لا نعرض الدرجات أو الشهادات، بل نُظهر ما يجعلنا بشرًا: التفكير، الإحساس، الإبداع.", 
-                      quote: "أنت لست مجرد رقم جامعي، أنت فكرة تستحق أن تُخلّد."
-                  }},
-                { id: 'sec-7', order: 7, menuTitle: '✨ الدعوة الأخيرة', title: '✨ الدعوة الأخيرة', type: 'final_call',
-                  fields: { 
-                      call_title: "شارك بفكرة، كلمة، لوحة، أو حتى سؤال وجودي.", 
-                      call_subtitle: "اترك أثرًا يُشبهك، لأن ما تزرعه اليوم سيكون ذاكرة الجامعة غدًا.",
-                      final_signature: "متحف الفكر — لأن الفكر هو ما يجعلنا خالدين."
-                  }}
-            ]
+        // إعدادات Firebase الخاصة بك
+        const firebaseConfig = {
+            apiKey: "AIzaSyB8JN73w75NQB7MifQMdOl1VcwifklyVZU",
+            authDomain: "newpro-d5360.firebaseapp.com",
+            projectId: "newpro-d5360",
+            storageBucket: "newpro-d5360.firebasestorage.app",
+            messagingSenderId: "732050035324",
+            appId: "1:732050035324:web:5a38e03134de3b287b2ff9"
         };
 
-        // ==========================================================
-        //         2. وظائف التحكم بالواجهة والتسجيل
-        // ==========================================================
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-        window.globalApp.displayError = (message) => {
-            const errorFlash = document.getElementById('global-error-message');
-            const errorText = document.getElementById('global-error-text');
-            
-            errorText.textContent = message;
-            errorFlash.classList.remove('hidden');
-            setTimeout(() => {
-                errorFlash.classList.remove('opacity-0');
-                errorFlash.classList.add('opacity-100');
-            }, 10); 
+        let allSections = [];
 
-            setTimeout(() => {
-                errorFlash.classList.remove('opacity-100');
-                errorFlash.classList.add('opacity-0');
-                setTimeout(() => errorFlash.classList.add('hidden'), 500); 
-            }, 5000);
-        };
+        // --- محرك البيانات (كل بيانات الكود الأول) ---
+        const initialData = [
+            { order: 1, type: 'basic_highlight', menuTitle: '🧭 لماذا هذا المشروع مهم؟', title: '🧭 لماذا هذا المشروع مهم؟', fields: { p1: "في كل طالب، هناك عالم غير مكتشف: فكرة عميقة، لوحة لم تُعرض، أو كلمة لم تجد من يسمعها.", p2: "متحف الفكر ليس مشروعًا عاديًا…", p3: "إنه منصة تصنع التاريخ الشخصي والفكري لكل طالب.", p4: "هنا، نُحوّل الأفكار الصامتة إلى أثر خالد داخل الجامعة." }},
+            { order: 2, type: 'list', menuTitle: '🏛️ ما هو متحف الفكر؟', title: '🏛️ ما هو متحف الفكر؟', fields: { intro: "هو مساحة فكرية حرة داخل الجامعة — زاوية أو جدار أو قاعة — تجمع بين الفلسفة، الفن، والإبداع.", items: "تأملاتهم وأفكارهم.\nلوحاتهم ورسوماتهم الرمزية.\nاقتباساتهم ومقالاتهم القصيرة.\nأسئلتهم الوجودية ورسائلهم للأجيال القادمة." }},
+            { order: 3, type: 'quote', menuTitle: '💡 ما الذي يجعله مختلفًا؟', title: '💡 ما المختلف؟', fields: { p1: "لأنه يمسّ جوهر الإنسان. نحن لا نعرض الدرجات أو الشهادات، بل نُظهر ما يجعلنا بشرًا: التفكير، الإحساس، الإبداع.", quote: "أنت لست مجرد رقم جامعي، أنت فكرة تستحق أن تُخلّد." }},
+            { order: 4, type: 'list', menuTitle: '🌿 فائدة المشاركين؟', title: '🌿 الفائدة للمشاركين', fields: { intro: "لكل طالب أو دكتور يشارك… هناك قيمة حقيقية تعود إليه:", items: "الشهرة الفكرية: اسمك سيبقى للأجيال.\nالبوابة الأولى لأعمالك الإبداعية.\nمجتمع فكري حقيقي تلتقي فيه بعقول تشبهك.\nتجربة إنسانية فريدة ستجد أثرها بعد سنوات." }},
+            { order: 5, type: 'quote', menuTitle: '🚀 لماذا الدعم؟', title: '🚀 لماذا تدعمنا؟', fields: { p1: "حين تدعم متحف الفكر، فأنت تدعم فكرة أن الإنسان يصنع أثره بالفكر لا بالمال. كل لوحة هي استثمار في روح الجامعة.", quote: "من يدعم الفكرة اليوم، سيُذكر غدًا بأنه بنى الذاكرة الفكرية الأولى." }},
+            { order: 6, type: 'list', menuTitle: '🎭 المستقبل والتوسّع', title: '🎭 المستقبل والتوسّع', fields: { intro: "متحف الفكر ليس لحظة مؤقتة، بل بذرة مشروع ثقافي دائم.", items: "معارض فكرية وفنية دورية.\nمسابقات تحفيزية لأفضل المشاركات.\nندوات حول الفلسفة والوعي الذاتي." }},
+            { order: 7, type: 'final', menuTitle: '✨ الدعوة الأخيرة', title: '✨ شاركنا الآن', fields: { p1: "شارك بفكرة، كلمة، لوحة، أو حتى سؤال وجودي. اترك أثرًا يُشبهك، لأن ما تزرعه اليوم سيكون ذاكرة الجامعة غدًا.", sign: "متحف الفكر — لأن الفكر هو ما يجعلنا خالدين." }}
+        ];
 
-        function showView(viewId) {
-            const views = ['loader', 'registration-view', 'home-view', 'management-view'];
-            views.forEach(id => {
-                const view = document.getElementById(id);
-                if (view) view.classList.add('hidden');
-            });
-            const activeView = document.getElementById(viewId);
-            if (activeView) activeView.classList.remove('hidden');
+        // --- وظائف التشغيل ---
+
+        function notify(msg, color='bg-blue-600') {
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.className = `fixed top-5 right-5 p-4 rounded-lg shadow-xl z-50 text-white font-bold ${color}`;
+            t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 3000);
         }
 
-        document.getElementById('registration-form').addEventListener('submit', async (e) => {
+        async function checkAndSeed() {
+            const q = await getDocs(collection(db, "sections"));
+            if (q.empty) {
+                notify("جاري إعداد محتوى المتحف لأول مرة...");
+                for (let item of initialData) { await addDoc(collection(db, "sections"), item); }
+            }
+        }
+
+        document.getElementById('login-form').onsubmit = async (e) => {
             e.preventDefault();
-            
-            const name = document.getElementById('name').value.trim();
-            const specialty = document.getElementById('specialty').value.trim();
-            const errorMessage = document.getElementById('reg-error-message');
-            const submitBtn = document.getElementById('reg-submit-btn');
-            
-            errorMessage.classList.add('hidden');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'جاري التحقق...';
+            const btn = document.getElementById('btn-login');
+            btn.disabled = true; btn.textContent = "جاري التحقق...";
 
-            if (!name || !specialty) {
-                errorMessage.textContent = 'الرجاء إدخال الاسم والتخصص.';
-                errorMessage.classList.remove('hidden');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'تسجيل الدخول والاستكشاف';
-                return;
-            }
+            const name = document.getElementById('user-name').value;
+            const spec = document.getElementById('user-spec').value;
 
-            // انتظار المصادقة الأولية لضمان توفر DB و Auth
-            while (!window.globalApp.isAuthReady) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
-            
-            // التحقق من صلاحية المدير
-            if (name === ADMIN_NAME && specialty === ADMIN_SPECIALTY) {
-                await window.globalApp.setupAdminView();
-                showView('management-view');
-                submitBtn.textContent = 'تسجيل الدخول والاستكشاف';
-                submitBtn.disabled = false;
-                return;
-            }
-
-            // المستخدم العادي: تسجيل بيانات الزائر وحفظها في Firestore
             try {
-                const registrationsRef = collection(window.DB, window.FIRESTORE_PATHS.REGISTRATIONS);
-                await addDoc(registrationsRef, {
-                    name: name,
-                    specialty: specialty,
-                    registrationDate: serverTimestamp(),
-                    userId: window.globalApp.userId, // حفظ UID للمطابقة
-                });
+                await checkAndSeed(); // التأكد من وجود البيانات
 
-                document.getElementById('user-display-name').textContent = name;
-                window.globalApp.setupHomeView(); // تحميل الأقسام من Firestore
-                showView('home-view');
-            } catch (error) {
-                console.error("Error registering visitor:", error);
-                window.globalApp.displayError('فشل تسجيل الزائر في قاعدة البيانات.');
-                errorMessage.textContent = 'فشل التسجيل. حاول مرة أخرى.';
-                errorMessage.classList.remove('hidden');
-            } finally {
-                submitBtn.textContent = 'تسجيل الدخول والاستكشاف';
-                submitBtn.disabled = false;
-            }
-        });
-
-        // تشغيل واجهة التسجيل عند الانتهاء من تهيئة Firebase
-        window.onload = () => {
-            const checkReady = setInterval(() => {
-                if (window.globalApp.isAuthReady) {
-                    clearInterval(checkReady);
-                    showView('registration-view');
-                }
-            }, 100);
-        };
-
-        // ==========================================================
-        //         3. إدارة بيانات الأقسام (Sections)
-        // ==========================================================
-
-        // وظيفة جلب ومراقبة الأقسام من Firestore
-        window.globalApp.setupContentListener = (callback) => {
-            const sectionsRef = collection(window.DB, window.FIRESTORE_PATHS.SECTIONS);
-            // استخدم onSnapshot لمراقبة التغييرات في الوقت الفعلي
-            const q = query(sectionsRef, orderBy('order', 'asc'));
-
-            return onSnapshot(q, (snapshot) => {
-                const sections = [];
-                snapshot.forEach(doc => {
-                    sections.push({ id: doc.id, ...doc.data() });
-                });
-                window.globalApp.sectionsData = sections;
-                callback(sections);
-            }, async (error) => {
-                console.error("Error listening to sections:", error);
-                // محاولة ملء البيانات الأولية في حال كانت المجموعة فارغة (إطلاق التطبيق لأول مرة)
-                if (window.globalApp.sectionsData.length === 0) {
-                     await window.globalApp.initializeSections();
+                if (name === "Rasha" && spec === "20250929") {
+                    document.getElementById('login-view').classList.add('hidden');
+                    document.getElementById('admin-view').classList.remove('hidden');
+                    loadAdminView();
                 } else {
-                     window.globalApp.displayError('فشل تحميل المحتوى من قاعدة البيانات.');
+                    await addDoc(collection(db, "users"), { name, specialty: spec, time: serverTimestamp() });
+                    document.getElementById('display-name').textContent = name;
+                    document.getElementById('login-view').classList.add('hidden');
+                    document.getElementById('home-view').classList.remove('hidden');
+                    loadUserView();
                 }
-            });
-        };
-        
-        // وظيفة ملء قاعدة البيانات بالبيانات الأولية عند الإطلاق الأول
-        window.globalApp.initializeSections = async () => {
-            const sectionsRef = collection(window.DB, window.FIRESTORE_PATHS.SECTIONS);
-            
-            // تحقق ما إذا كانت المجموعة فارغة
-            const snapshot = await getDocs(sectionsRef);
-            if (snapshot.empty) {
-                console.log("Sections collection is empty. Initializing with default data.");
-                for (const section of window.globalApp.initialSectionsData) {
-                    // استخدام ID معين لسهولة الرجوع إليه
-                    await setDoc(doc(sectionsRef, section.id), section);
-                }
-                window.globalApp.displayError('تم إنشاء المحتوى الأولي في قاعدة البيانات بنجاح.');
-            }
+            } catch (err) { notify("خطأ في الاتصال!", "bg-red-600"); }
         };
 
-        // ==========================================================
-        //         4. وظائف الواجهة الرئيسية (للمستخدم العادي)
-        // ==========================================================
-
-        window.globalApp.setupHomeView = () => {
-            // بدأ مراقبة المحتوى وتحديث قائمة المستخدم العادي
-            window.globalApp.setupContentListener(window.globalApp.renderHomeSections);
-        };
-        
-        window.globalApp.renderHomeSections = (sections) => {
-            const listElement = document.getElementById('dynamic-sections-list');
-            listElement.innerHTML = '';
-            
-            sections.forEach(section => {
+        async function loadUserView() {
+            const menu = document.getElementById('sections-menu');
+            const q = query(collection(db, "sections"), orderBy("order"));
+            const snap = await getDocs(q);
+            allSections = [];
+            menu.innerHTML = '';
+            snap.forEach(doc => {
+                const data = doc.data();
+                allSections.push(data);
                 const div = document.createElement('div');
-                // Sand Background + Midnight Blue Accent
-                div.className = 'cursor-pointer p-4 bg-stone-200 hover:bg-stone-300 rounded-xl shadow-sm transition duration-200 border-r-4 border-indigo-700';
-                
-                const template = window.globalApp.templates[section.type];
-                const bodyHtml = template ? template.render(section.fields) : `<p>خطأ: لم يتم العثور على قالب ${section.type}.</p>`;
-
-                div.onclick = () => window.globalApp.showSection(section.id, section.title, bodyHtml);
-                // Midnight Blue Text
-                div.innerHTML = `
-                    <h3 class="text-xl font-semibold text-indigo-900">${section.order}. ${section.menuTitle}</h3>
-                    <p class="text-xs text-gray-500 mt-1 truncate">${section.menuTitle.split(' ')[2] || '...'}</p>
-                `;
-                listElement.appendChild(div);
-            });
-        };
-
-        window.globalApp.changeView = (target) => {
-            const mainMenu = document.getElementById('main-menu');
-            const sectionContent = document.getElementById('section-content');
-            
-            if (target === 'main-menu') {
-                mainMenu.classList.remove('hidden');
-                sectionContent.classList.add('hidden');
-            }
-        };
-
-        window.globalApp.showSection = (id, title, bodyHtml) => {
-            document.getElementById('section-title').textContent = title;
-            document.getElementById('section-body').innerHTML = bodyHtml;
-            
-            document.getElementById('main-menu').classList.add('hidden');
-            document.getElementById('section-content').classList.remove('hidden');
-        };
-
-        // ==========================================================
-        //         5. وظائف واجهة الإدارة (للمدير)
-        // ==========================================================
-
-        window.globalApp.setupAdminView = async () => {
-            // بدأ مراقبة المحتوى وتحديث قائمة المدير
-            window.globalApp.setupContentListener(window.globalApp.renderEditableSections);
-            // بدأ مراقبة بيانات المشاركين
-            window.globalApp.setupParticipantsListener();
-        };
-
-        // عرض قائمة الأقسام القابلة للتعديل
-        window.globalApp.renderEditableSections = (sections) => {
-            const listElement = document.getElementById('editable-sections-list');
-            listElement.innerHTML = '';
-            
-            sections.forEach(section => {
-                const div = document.createElement('div');
-                // Sand Background + Velvet Red Accent
-                div.className = 'flex justify-between items-center p-4 bg-stone-200 hover:bg-stone-300 rounded-lg shadow-sm border-r-4 border-rose-700 transition duration-200';
-                div.innerHTML = `
-                    <div class="flex-1">
-                        <!-- Velvet Red Text -->
-                        <h3 class="text-lg font-semibold text-rose-800">${section.order}. ${section.menuTitle}</h3>
-                        <p class="text-xs text-gray-500">القالب: ${section.type}</p>
-                    </div>
-                    <!-- Velvet Red Button -->
-                    <button onclick="window.globalApp.openEditorModal('${section.id}')" class="py-1 px-3 bg-rose-700 text-white text-sm rounded-md hover:bg-rose-800 transition ml-2">تعديل</button>
-                `;
-                listElement.appendChild(div);
-            });
-             if (sections.length === 0) {
-                 listElement.innerHTML = '<p class="text-center text-gray-500">لا توجد أقسام حالياً. يرجى إضافة قسم جديد.</p>';
-            }
-        };
-
-        // وظيفة مراقبة بيانات المشاركين
-        window.globalApp.setupParticipantsListener = () => {
-            const participantsRef = collection(window.DB, window.FIRESTORE_PATHS.REGISTRATIONS);
-            // جلب البيانات مرتبة حسب تاريخ التسجيل
-            const q = query(participantsRef, orderBy('registrationDate', 'desc'));
-
-            onSnapshot(q, (snapshot) => {
-                window.globalApp.participantsData = [];
-                snapshot.forEach(doc => {
-                    window.globalApp.participantsData.push({ id: doc.id, ...doc.data() });
-                });
-                window.globalApp.renderParticipantsTable();
-            }, (error) => {
-                console.error("Error listening to participants:", error);
-                window.globalApp.displayError('فشل تحميل بيانات المشاركين من قاعدة البيانات.');
-            });
-        };
-
-        // وظيفة عرض بيانات المشاركين في جدول
-        window.globalApp.renderParticipantsTable = () => {
-            const tbody = document.getElementById('participants-table-body');
-            const countSpan = document.getElementById('participants-count');
-            tbody.innerHTML = '';
-            
-            const participants = window.globalApp.participantsData;
-            countSpan.textContent = participants.length;
-
-            if (participants.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-500">لا يوجد مشاركون مسجلون بعد.</td></tr>';
-                return;
-            }
-
-            participants.forEach(p => {
-                const date = p.registrationDate ? new Date(p.registrationDate.seconds * 1000).toLocaleString('ar-EG') : 'غير متوفر';
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${p.name || 'غير مُدخل'}</td>
-                    <td>${p.specialty || 'غير مُدخل'}</td>
-                    <td>${date}</td>
-                `;
-                tbody.appendChild(row);
-            });
-        };
-        
-        // وظيفة التبديل بين تبويبات المدير
-        window.globalApp.showAdminTab = (tabName) => {
-            window.globalApp.currentAdminTab = tabName;
-            const tabs = {
-                content: document.getElementById('admin-content-tab'),
-                participants: document.getElementById('admin-participants-tab')
-            };
-            
-            Object.keys(tabs).forEach(key => {
-                const tab = tabs[key];
-                const button = document.getElementById(`tab-${key}`);
-                
-                if (key === tabName) {
-                    tab.classList.remove('hidden');
-                    button.classList.add('active');
-                    button.classList.remove('text-gray-600');
-                    button.classList.add('text-rose-700'); // Velvet Red
-                } else {
-                    tab.classList.add('hidden');
-                    button.classList.remove('active');
-                    button.classList.remove('text-rose-700');
-                    button.classList.add('text-gray-600');
-                }
-            });
-        };
-
-        // ==========================================================
-        //         6. وظائف نموذج التعديل والإضافة
-        // ==========================================================
-        
-        // توليد حقول النموذج بناءً على القالب
-        function generateEditorFields(sectionData) {
-            const container = document.getElementById('dynamic-editor-fields');
-            container.innerHTML = '';
-            const templateType = sectionData.type || 'basic_highlight';
-            const template = window.globalApp.templates[templateType];
-            
-            document.getElementById('editor-type').value = templateType;
-
-            if (!template) {
-                container.innerHTML = `<p class="text-rose-600">خطأ: القالب (${templateType}) غير مدعوم.</p>`;
-                return;
-            }
-
-            template.editorFields.forEach(field => {
-                const div = document.createElement('div');
-                div.className = 'space-y-1';
-                
-                let inputElement;
-                const fieldId = `editor-field-${field.key}`;
-
-                if (field.type === 'textarea') {
-                    inputElement = document.createElement('textarea');
-                    inputElement.className = 'editor-textarea mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-700 focus:border-indigo-700';
-                    inputElement.placeholder = field.placeholder || '';
-                } else {
-                    inputElement = document.createElement('input');
-                    inputElement.type = 'text';
-                    inputElement.className = 'mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-700 focus:border-indigo-700';
-                }
-                
-                inputElement.id = fieldId;
-                inputElement.required = true;
-                
-                const fieldValue = sectionData.fields ? sectionData.fields[field.key] : '';
-                inputElement.value = fieldValue;
-                
-                const label = document.createElement('label');
-                label.htmlFor = fieldId;
-                label.className = 'block text-sm font-medium text-gray-700';
-                label.textContent = field.label;
-
-                div.appendChild(label);
-                div.appendChild(inputElement);
-                container.appendChild(div);
+                div.className = "p-4 bg-white rounded-xl shadow-sm border-r-4 border-blue-800 cursor-pointer hover:bg-blue-50 transition font-bold text-blue-900";
+                div.textContent = data.menuTitle;
+                div.onclick = () => renderDetail(data);
+                menu.appendChild(div);
             });
         }
 
-
-        // فتح نموذج التعديل/الإضافة
-        window.globalApp.openEditorModal = (docId) => {
-            const modal = document.getElementById('editor-modal');
-            const form = document.getElementById('section-editor-form');
-            const saveBtn = document.getElementById('editor-save-btn');
-            const titleText = document.getElementById('editor-title-text');
-            document.getElementById('modal-error-message').classList.add('hidden');
+        function renderDetail(data) {
+            document.getElementById('sections-menu').classList.add('hidden');
+            const detail = document.getElementById('section-detail');
+            detail.classList.remove('hidden');
+            document.getElementById('detail-title').textContent = data.title;
             
-            form.reset();
-            
-            let sectionData = {};
-            let isNew = docId === 'new';
-
-            if (isNew) {
-                document.getElementById('editor-doc-id').value = '';
-                titleText.textContent = 'إضافة قسم جديد';
-                saveBtn.textContent = 'إنشاء وحفظ';
-                // بيانات القالب الافتراضية للقسم الجديد
-                sectionData = {
-                    type: 'basic_highlight', 
-                    menuTitle: 'قسم جديد', 
-                    title: 'عنوان القسم الجديد', 
-                    fields: { p1: '', p2: '', p3_highlight: '', p4: '' }
-                };
-            } else {
-                titleText.textContent = 'تعديل القسم الحالي';
-                saveBtn.textContent = 'حفظ التعديلات';
-                document.getElementById('editor-doc-id').value = docId;
-                
-                // البحث عن القسم في الذاكرة
-                sectionData = window.globalApp.sectionsData.find(sec => sec.id === docId);
-                if (!sectionData) {
-                    window.globalApp.displayError('فشل العثور على القسم في الذاكرة المحلية.');
-                    return;
-                }
+            let html = '';
+            const f = data.fields;
+            if (data.type === 'basic_highlight') {
+                html = `<p>${f.p1}</p><p>${f.p2}</p><p class="text-xl font-extrabold text-blue-800">${f.p3}</p><p>${f.p4}</p>`;
+            } else if (data.type === 'list') {
+                const list = f.items.split('\n').map(i => `<li>• ${i}</li>`).join('');
+                html = `<p>${f.intro}</p><ul class="space-y-2 bg-blue-50 p-4 rounded-lg">${list}</ul>`;
+            } else if (data.type === 'quote') {
+                html = `<p>${f.p1}</p><div class="highlight-quote">${f.quote}</div>`;
+            } else if (data.type === 'final') {
+                html = `<div class="bg-blue-100 p-6 rounded-xl text-center"><p class="text-xl font-bold">${f.p1}</p><p class="mt-4 text-2xl text-blue-900 font-black">${f.sign}</p></div>`;
             }
+            document.getElementById('detail-body').innerHTML = html;
+        }
 
-            document.getElementById('editor-menu-title').value = sectionData.menuTitle || '';
-            document.getElementById('editor-full-title').value = sectionData.title || '';
-            
-            generateEditorFields(sectionData);
+        window.showMenu = () => {
+            document.getElementById('section-detail').classList.add('hidden');
+            document.getElementById('sections-menu').classList.remove('hidden');
+        };
 
+        async function loadAdminView() {
+            const list = document.getElementById('admin-sections');
+            const snap = await getDocs(query(collection(db, "sections"), orderBy("order")));
+            list.innerHTML = '';
+            snap.forEach(doc => {
+                list.innerHTML += `<div class="p-3 bg-white rounded shadow text-sm flex justify-between"><span>${doc.data().menuTitle}</span><span class="text-gray-400">قاعدة البيانات نشطة ✅</span></div>`;
+            });
+        }
+
+        window.showMembers = async () => {
+            const modal = document.getElementById('members-modal');
+            const list = document.getElementById('members-list');
             modal.classList.remove('hidden');
+            list.innerHTML = 'جاري التحميل...';
+            const snap = await getDocs(query(collection(db, "users"), orderBy("time", "desc")));
+            list.innerHTML = '';
+            snap.forEach(doc => {
+                const u = doc.data();
+                const d = u.time ? new Date(u.time.toDate()).toLocaleString('ar-EG') : '...';
+                list.innerHTML += `<div class="p-3 bg-gray-50 rounded-lg border-r-4 border-green-500"><p class="font-bold text-gray-800">${u.name}</p><p class="text-xs text-gray-500">${u.specialty} | ${d}</p></div>`;
+            });
         };
-
-        // إغلاق نموذج التعديل
-        window.globalApp.closeEditorModal = () => {
-            document.getElementById('editor-modal').classList.add('hidden');
-        };
-        
-        // حفظ التعديلات في Firestore
-        document.getElementById('section-editor-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const docId = document.getElementById('editor-doc-id').value;
-            const menuTitle = document.getElementById('editor-menu-title').value;
-            const fullTitle = document.getElementById('editor-full-title').value;
-            const type = document.getElementById('editor-type').value;
-            const saveBtn = document.getElementById('editor-save-btn');
-            const modalError = document.getElementById('modal-error-message');
-            
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'جاري الحفظ...';
-            modalError.classList.add('hidden');
-            
-            try {
-                // 1. تجميع البيانات من حقول النموذج
-                const newFields = {};
-                const template = window.globalApp.templates[type];
-                template.editorFields.forEach(field => {
-                    newFields[field.key] = document.getElementById(`editor-field-${field.key}`).value.trim();
-                });
-
-                // 2. تجميع بيانات القسم
-                const sectionData = {
-                    menuTitle: menuTitle,
-                    title: fullTitle,
-                    type: type,
-                    fields: newFields,
-                    updatedAt: serverTimestamp()
-                };
-
-                const sectionsRef = collection(window.DB, window.FIRESTORE_PATHS.SECTIONS);
-
-                if (docId) {
-                    // تحديث قسم موجود
-                    const docRef = doc(sectionsRef, docId);
-                    await updateDoc(docRef, sectionData);
-                } else {
-                    // إضافة قسم جديد
-                    const currentMaxOrder = window.globalApp.sectionsData.length > 0 ? 
-                                           Math.max(...window.globalApp.sectionsData.map(s => s.order)) : 0;
-                    
-                    const newSection = {
-                        ...sectionData,
-                        order: currentMaxOrder + 1,
-                        createdAt: serverTimestamp()
-                    };
-                    await addDoc(sectionsRef, newSection);
-                }
-                
-                window.globalApp.closeEditorModal();
-                window.globalApp.displayError('تم حفظ المحتوى في قاعدة البيانات بنجاح.');
-
-            } catch (error) {
-                console.error("Error saving section:", error);
-                modalError.textContent = `فشل حفظ القسم. الخطأ: ${error.message}.`;
-                modalError.classList.remove('hidden');
-                window.globalApp.displayError('فشل حفظ المحتوى في قاعدة البيانات.');
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.textContent = docId ? 'حفظ التعديلات' : 'إنشاء وحفظ';
-            }
-        });
     </script>
 </body>
 </html>
