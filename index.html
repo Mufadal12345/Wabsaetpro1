@@ -1,1183 +1,0 @@
-<!doctype html>
-<html lang="ar" dir="rtl" class="h-full">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>متحف الفكر - بوابة الإبداع الفكري</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&amp;family=Amiri:wght@400;700&amp;display=swap" rel="stylesheet">
-    <style>
-        /* سيتم إضافة الأنماط CSS هنا */
-    </style>
-</head>
-<body class="h-full w-full gradient-bg text-white overflow-hidden">
-    <!-- Menu Toggle Button (Mobile) -->
-    <button id="menuToggle" onclick="toggleSidebar()" class="menu-toggle w-14 h-14 rounded-full flex items-center justify-center text-2xl hidden">🏛️</button>
-    
-    <!-- Sidebar Overlay (Mobile) -->
-    <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
-    
-    <!-- Modal for Adding Idea -->
-    <div id="addIdeaModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center hidden">
-        <div class="glass-dark rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold gradient-text">إضافة فكرة جديدة</h3>
-                <button onclick="closeModal('addIdeaModal')" class="text-2xl text-gray-400 hover:text-white">&times;</button>
-            </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label for="newIdeaTitle" class="block text-sm mb-2">عنوان الفكرة</label>
-                    <input type="text" id="newIdeaTitle" class="input-style w-full px-4 py-3 rounded-xl" placeholder="اكتب عنواناً مختصراً للفكرة">
-                </div>
-                
-                <div>
-                    <label for="newIdeaCategory" class="block text-sm mb-2">التصنيف</label>
-                    <select id="newIdeaCategory" class="input-style w-full px-4 py-3 rounded-xl">
-                        <option value="فلسفة">🧠 فلسفة</option>
-                        <option value="تقنية">💻 تقنية</option>
-                        <option value="أدب">📖 أدب</option>
-                        <option value="علوم">🔬 علوم</option>
-                        <option value="فن">🎨 فن</option>
-                        <option value="اجتماع">👥 اجتماع</option>
-                    </select>
-                </div>
-                
-                <div>
-                    <label for="newIdeaContent" class="block text-sm mb-2">محتوى الفكرة</label>
-                    <textarea id="newIdeaContent" class="input-style w-full px-4 py-3 rounded-xl h-40 resize-none" placeholder="اشرح فكرتك بالتفصيل..."></textarea>
-                </div>
-                
-                <!-- إضافة خانة إدخال للنقاط -->
-                <div id="ideaPointsField" class="hidden">
-                    <label for="newIdeaPoints" class="block text-sm mb-2">نقاط الفكرة (اختياري)</label>
-                    <input type="number" id="newIdeaPoints" class="input-style w-full px-4 py-3 rounded-xl" placeholder="أدخل نقاط الفكرة" min="1" max="100">
-                </div>
-            </div>
-            
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeModal('addIdeaModal')" class="btn-secondary flex-1 py-3 rounded-xl">إلغاء</button>
-                <button onclick="submitNewIdea()" class="btn-primary flex-1 py-3 rounded-xl">نشر الفكرة</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal for Adding Quote -->
-    <div id="addQuoteModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center hidden">
-        <div class="glass-dark rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold gradient-text">إضافة عبارة ملهمة</h3>
-                <button onclick="closeModal('addQuoteModal')" class="text-2xl text-gray-400 hover:text-white">&times;</button>
-            </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label for="newQuoteText" class="block text-sm mb-2">النص</label>
-                    <textarea id="newQuoteText" class="input-style w-full px-4 py-3 rounded-xl h-32 resize-none" placeholder="اكتب العبارة الملهمة..."></textarea>
-                </div>
-                
-                <div>
-                    <label for="newQuoteAuthor" class="block text-sm mb-2">المؤلف</label>
-                    <input type="text" id="newQuoteAuthor" class="input-style w-full px-4 py-3 rounded-xl" placeholder="اسم المؤلف">
-                </div>
-                
-                <div>
-                    <label for="newQuoteCategory" class="block text-sm mb-2">فئة العبارة</label>
-                    <select id="newQuoteCategory" class="input-style w-full px-4 py-3 rounded-xl">
-                        <option value="تحفيزية">💪 تحفيزية</option>
-                        <option value="فلسفية">🧠 فلسفية</option>
-                        <option value="إبداعية">🎨 إبداعية</option>
-                        <option value="تعليمية">📚 تعليمية</option>
-                        <option value="حكمة">✨ حكمة</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeModal('addQuoteModal')" class="btn-secondary flex-1 py-3 rounded-xl">إلغاء</button>
-                <button onclick="submitNewQuote()" class="btn-primary flex-1 py-3 rounded-xl">إضافة العبارة</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal for Adding Course/Channel -->
-    <div id="addCourseModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center hidden">
-        <div class="glass-dark rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold gradient-text">إضافة مصدر تعليمي</h3>
-                <button onclick="closeModal('addCourseModal')" class="text-2xl text-gray-400 hover:text-white">&times;</button>
-            </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label for="newCourseTitle" class="block text-sm mb-2">عنوان المصدر</label>
-                    <input type="text" id="newCourseTitle" class="input-style w-full px-4 py-3 rounded-xl" placeholder="اسم القناة أو الكورس">
-                </div>
-                
-                <div>
-                    <label for="newCourseType" class="block text-sm mb-2">نوع المصدر</label>
-                    <select id="newCourseType" class="input-style w-full px-4 py-3 rounded-xl">
-                        <option value="قناة يوتيوب">📺 قناة يوتيوب</option>
-                        <option value="كورس أونلاين">🎓 كورس أونلاين</option>
-                        <option value="منصة تعليمية">💻 منصة تعليمية</option>
-                        <option value="مقالات">📝 مقالات</option>
-                        <option value="كتب">📚 كتب</option>
-                        <option value="بودكاست">🎙️ بودكاست</option>
-                    </select>
-                </div>
-                
-                <div>
-                    <label for="newCourseDescription" class="block text-sm mb-2">الوصف</label>
-                    <textarea id="newCourseDescription" class="input-style w-full px-4 py-3 rounded-xl h-32 resize-none" placeholder="وصف مختصر للمصدر..."></textarea>
-                </div>
-                
-                <div>
-                    <label for="newCourseLink" class="block text-sm mb-2">الرابط (اختياري)</label>
-                    <input type="text" id="newCourseLink" class="input-style w-full px-4 py-3 rounded-xl" placeholder="https://example.com">
-                </div>
-                
-                <div>
-                    <label for="newCourseSkill" class="block text-sm mb-2">المهارة المستهدفة</label>
-                    <input type="text" id="newCourseSkill" class="input-style w-full px-4 py-3 rounded-xl" placeholder="مثل: البرمجة، التصميم، الكتابة...">
-                </div>
-            </div>
-            
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeModal('addCourseModal')" class="btn-secondary flex-1 py-3 rounded-xl">إلغاء</button>
-                <button onclick="submitNewCourse()" class="btn-primary flex-1 py-3 rounded-xl">إضافة المصدر</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal for Sending Message to Admin -->
-    <div id="messageAdminModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center hidden">
-        <div class="glass-dark rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold gradient-text">إرسال رسالة إلى المدير</h3>
-                <button onclick="closeModal('messageAdminModal')" class="text-2xl text-gray-400 hover:text-white">&times;</button>
-            </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label for="messageTitle" class="block text-sm mb-2">عنوان الرسالة</label>
-                    <input type="text" id="messageTitle" class="input-style w-full px-4 py-3 rounded-xl" placeholder="عنوان الرسالة">
-                </div>
-                
-                <div>
-                    <label for="messageType" class="block text-sm mb-2">نوع الرسالة</label>
-                    <select id="messageType" class="input-style w-full px-4 py-3 rounded-xl">
-                        <option value="طلب مساعدة">🆘 طلب مساعدة</option>
-                        <option value="مقترح">💡 مقترح</option>
-                        <option value="مشكلة">⚠️ مشكلة</option>
-                        <option value="طلب رمز ترقية">🎫 طلب رمز ترقية</option>
-                        <option value="استفسار">❓ استفسار</option>
-                        <option value="تقرير خطأ">🐛 تقرير خطأ</option>
-                    </select>
-                </div>
-                
-                <div>
-                    <label for="messageContent" class="block text-sm mb-2">محتوى الرسالة</label>
-                    <textarea id="messageContent" class="input-style w-full px-4 py-3 rounded-xl h-40 resize-none" placeholder="اكتب رسالتك هنا..."></textarea>
-                </div>
-            </div>
-            
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeModal('messageAdminModal')" class="btn-secondary flex-1 py-3 rounded-xl">إلغاء</button>
-                <button onclick="sendMessageToAdmin()" class="btn-primary flex-1 py-3 rounded-xl">إرسال الرسالة</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal for Idea Details and Comments -->
-    <div id="ideaDetailsModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center hidden">
-        <div class="glass-dark rounded-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold gradient-text" id="ideaDetailsTitle">تفاصيل الفكرة</h3>
-                <button onclick="closeModal('ideaDetailsModal')" class="text-2xl text-gray-400 hover:text-white">&times;</button>
-            </div>
-            
-            <!-- Idea Content -->
-            <div id="ideaDetailsContent" class="mb-6">
-                <!-- سيتم ملؤه بالجافاسكربت -->
-            </div>
-            
-            <!-- Stats Section -->
-            <div id="ideaStats" class="glass-card rounded-xl p-4 mb-6 hidden">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                    <div>
-                        <p class="text-sm text-gray-400">المشاهدات</p>
-                        <p class="text-xl font-bold" id="ideaViews">0</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-400">الإعجابات</p>
-                        <p class="text-xl font-bold" id="ideaLikes">0</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-400">التعليقات</p>
-                        <p class="text-xl font-bold" id="ideaCommentsCount">0</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-400">النقاط</p>
-                        <p class="text-xl font-bold" id="ideaPoints">0</p>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Admin Actions -->
-            <div id="ideaAdminActions" class="mb-6 hidden">
-                <div class="flex gap-2">
-                    <button onclick="deleteIdea()" class="btn-danger px-4 py-2 rounded-xl">🗑️ حذف الفكرة</button>
-                    <button onclick="markAsFeatured()" class="btn-secondary px-4 py-2 rounded-xl">⭐ تمييز</button>
-                </div>
-            </div>
-            
-            <!-- Comments Section -->
-            <div class="comment-section">
-                <h4 class="text-lg font-bold mb-4 flex items-center gap-2">
-                    <span>💬</span>
-                    <span>التعليقات (<span id="commentsCount">0</span>)</span>
-                </h4>
-                
-                <!-- Add Comment Form -->
-                <div class="glass-card rounded-xl p-4 mb-6">
-                    <textarea id="newCommentText" class="input-style w-full px-4 py-3 rounded-xl h-24 resize-none" placeholder="اكتب تعليقك هنا..."></textarea>
-                    <div class="flex justify-between items-center mt-3">
-                        <button onclick="submitComment()" class="btn-primary px-6 py-2 rounded-xl flex items-center gap-2">
-                            <span>💬</span>
-                            <span>إضافة تعليق</span>
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Comments List -->
-                <div id="commentsList" class="space-y-4">
-                    <!-- سيتم ملؤه بالجافاسكربت -->
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal for Activation Code -->
-    <div id="activationCodeModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center hidden">
-        <div class="glass-dark rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold gradient-text">🔑 تفعيل رمز الترقية</h3>
-                <button onclick="closeModal('activationCodeModal')" class="text-2xl text-gray-400 hover:text-white">&times;</button>
-            </div>
-            
-            <div class="space-y-4">
-                <div class="text-center mb-4">
-                    <span class="text-6xl mb-4 block">🎫</span>
-                    <p class="text-gray-300 mb-2">أدخل رمز الترقية للانتقال إلى عضو مميز</p>
-                    <p class="text-sm text-gray-400">رمز الترقية يمكنك الحصول عليه من المدير</p>
-                </div>
-                
-                <div>
-                    <label for="activationCode" class="block text-sm mb-2">رمز الترقية</label>
-                    <input type="text" id="activationCode" class="input-style w-full px-4 py-3 rounded-xl text-center text-lg tracking-widest" placeholder="أدخل الرمز هنا">
-                </div>
-            </div>
-            
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeModal('activationCodeModal')" class="btn-secondary flex-1 py-3 rounded-xl">إلغاء</button>
-                <button onclick="activateCode()" class="btn-primary flex-1 py-3 rounded-xl">تفعيل الرمز</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Modal for User Profile -->
-    <div id="profileModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center hidden">
-        <div class="glass-dark rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold gradient-text">👤 الملف الشخصي</h3>
-                <button onclick="closeModal('profileModal')" class="text-2xl text-gray-400 hover:text-white">&times;</button>
-            </div>
-            
-            <div class="space-y-4">
-                <div class="text-center mb-4">
-                    <div class="w-24 h-24 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-4xl mx-auto mb-4 shadow-lg avatar-pulse">
-                        <span id="profileAvatar">👤</span>
-                    </div>
-                    <h4 id="profileName" class="text-xl font-bold"></h4>
-                    <p id="profileSpecialty" class="text-gray-400"></p>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="glass-card rounded-xl p-4 text-center">
-                        <p class="text-sm text-gray-400">المستوى</p>
-                        <p id="profileLevel" class="text-2xl font-bold">1</p>
-                    </div>
-                    <div class="glass-card rounded-xl p-4 text-center">
-                        <p class="text-sm text-gray-400">النقاط</p>
-                        <p id="profilePoints" class="text-2xl font-bold">0</p>
-                    </div>
-                    <div class="glass-card rounded-xl p-4 text-center">
-                        <p class="text-sm text-gray-400">الأفكار</p>
-                        <p id="profileIdeas" class="text-2xl font-bold">0</p>
-                    </div>
-                    <div class="glass-card rounded-xl p-4 text-center">
-                        <p class="text-sm text-gray-400">التعليقات</p>
-                        <p id="profileComments" class="text-2xl font-bold">0</p>
-                    </div>
-                </div>
-                
-                <!-- Achievements -->
-                <div id="profileAchievements" class="mt-4 hidden">
-                    <h5 class="font-bold mb-2">🏆 الإنجازات</h5>
-                    <div id="achievementsList" class="flex flex-wrap gap-2">
-                        <!-- الإنجازات ستظهر هنا -->
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mt-6">
-                <button onclick="closeModal('profileModal')" class="btn-secondary w-full py-3 rounded-xl">إغلاق</button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="app" class="h-full w-full">
-        <!-- Login Screen -->
-        <div id="loginScreen" class="h-full w-full flex items-center justify-center p-4 overflow-auto">
-            <div class="glass-card rounded-3xl p-8 w-full max-w-md animate-fade-in">
-                <div class="text-center mb-8">
-                    <!-- Custom SVG Logo -->
-                    <div class="mb-6 flex justify-center logo-container">
-                        <svg width="140" height="140" viewbox="0 0 140 140" xmlns="http://www.w3.org/2000/svg" class="logo-glow animate-float">
-                            <!-- SVG content remains the same -->
-                        </svg>
-                    </div>
-                    
-                    <h1 class="text-3xl font-bold gradient-text font-amiri mb-3" id="siteTitle">متحف الفكر</h1>
-                    
-                    <!-- University Name -->
-                    <div class="mb-2">
-                        <p class="text-base font-bold text-yellow-300 mb-1">🎓 جامعة زيان عاشور بالجلفة</p>
-                    </div>
-                    
-                    <p class="text-gray-400 text-sm mb-4" id="welcomeMsg">بوابة الإبداع الفكري الرقمية</p>
-                    
-                    <!-- Credits -->
-                    <div class="glass-card rounded-xl p-4 space-y-2">
-                        <div class="flex items-center justify-center gap-2 text-sm">
-                            <span class="text-pink-300 font-bold">💡 فكرة:</span>
-                            <span class="text-gray-300">شعيب سعاد رشا</span>
-                        </div>
-                        <div class="flex items-center justify-center gap-2 text-sm">
-                            <span class="text-purple-300 font-bold">💻 برمجة:</span>
-                            <span class="text-gray-300">مفضل</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Tabs for Authentication Methods -->
-                <div class="flex mb-6 border-b border-white/10">
-                    <div class="auth-tab active" onclick="switchAuthTab('traditional')" id="tabTraditional">
-                        <span>👤 دخول تقليدي</span>
-                    </div>
-                    <div class="auth-tab" onclick="switchAuthTab('email')" id="tabEmail">
-                        <span>📧 بريد إلكتروني</span>
-                    </div>
-                    <div class="auth-tab" onclick="switchAuthTab('admin')" id="tabAdmin">
-                        <span>👑 مدير</span>
-                    </div>
-                </div>
-                
-                <!-- Traditional Login Form -->
-                <div id="traditionalLogin" class="auth-form">
-                    <div class="space-y-4">
-                        <div>
-                            <label for="loginName" class="block text-sm text-gray-300 mb-2">اسم المستخدم</label>
-                            <input type="text" id="loginName" class="input-style w-full px-4 py-3 rounded-xl text-white placeholder-gray-400" placeholder="أدخل اسمك">
-                        </div>
-                        
-                        <div>
-                            <label for="loginSpecialty" class="block text-sm text-gray-300 mb-2">التخصص / رمز الترقية (اختياري)</label>
-                            <input type="text" id="loginSpecialty" class="input-style w-full px-4 py-3 rounded-xl text-white placeholder-gray-400" placeholder="أدخل تخصصك أو رمز الترقية">
-                        </div>
-                        
-                        <button onclick="handleTraditionalLogin()" class="btn-primary w-full py-3 rounded-xl text-white font-bold mt-6">
-                            <span id="traditionalLoginBtnText">🚀 دخول المتحف</span>
-                            <div id="traditionalLoginSpinner" class="loading-spinner hidden mx-auto"></div>
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Email Login/Register Form -->
-                <div id="emailLogin" class="auth-form hidden">
-                    <div class="space-y-4">
-                        <div id="emailLoginFields">
-                            <div class="mb-4">
-                                <label for="loginEmail" class="block text-sm text-gray-300 mb-2">البريد الإلكتروني</label>
-                                <input type="email" id="loginEmail" class="input-style w-full px-4 py-3 rounded-xl text-white placeholder-gray-400" placeholder="example@email.com">
-                            </div>
-                            
-                            <div>
-                                <label for="loginPassword" class="block text-sm text-gray-300 mb-2">كلمة المرور</label>
-                                <input type="password" id="loginPassword" class="input-style w-full px-4 py-3 rounded-xl text-white placeholder-gray-400" placeholder="أدخل كلمة المرور">
-                            </div>
-                            
-                            <div class="mt-2 text-right">
-                                <button onclick="toggleEmailMode()" class="text-pink-400 hover:text-pink-300 text-sm">
-                                    <span id="emailToggleText">إنشاء حساب جديد</span>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div id="registerFields" class="hidden">
-                            <div class="mb-4">
-                                <label for="registerName" class="block text-sm text-gray-300 mb-2">اسم المستخدم</label>
-                                <input type="text" id="registerName" class="input-style w-full px-4 py-3 rounded-xl text-white placeholder-gray-400" placeholder="الاسم الذي سيظهر">
-                            </div>
-                            
-                            <div class="mb-4">
-                                <label for="registerSpecialty" class="block text-sm text-gray-300 mb-2">التخصص (اختياري)</label>
-                                <input type="text" id="registerSpecialty" class="input-style w-full px-4 py-3 rounded-xl text-white placeholder-gray-400" placeholder="تخصصك الأكاديمي">
-                            </div>
-                        </div>
-                        
-                        <button onclick="handleEmailAuth()" class="btn-primary w-full py-3 rounded-xl text-white font-bold mt-2">
-                            <span id="emailAuthBtnText">تسجيل الدخول</span>
-                            <div id="emailAuthSpinner" class="loading-spinner hidden mx-auto"></div>
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Admin Login Form -->
-                <div id="adminLogin" class="auth-form hidden">
-                    <div class="space-y-4">
-                        <div>
-                            <label for="adminUsername" class="block text-sm text-gray-300 mb-2">اسم المستخدم</label>
-                            <input type="text" id="adminUsername" class="input-style w-full px-4 py-3 rounded-xl text-white placeholder-gray-400" placeholder="اسم المستخدم المدير">
-                        </div>
-                        
-                        <div>
-                            <label for="adminPassword" class="block text-sm text-gray-300 mb-2">كلمة المرور</label>
-                            <input type="password" id="adminPassword" class="input-style w-full px-4 py-3 rounded-xl text-white placeholder-gray-400" placeholder="كلمة المرور المدير">
-                        </div>
-                        
-                        <button onclick="handleAdminLogin()" class="btn-primary w-full py-3 rounded-xl text-white font-bold mt-6">
-                            <span id="adminLoginBtnText">👑 دخول كمدير</span>
-                            <div id="adminLoginSpinner" class="loading-spinner hidden mx-auto"></div>
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Divider -->
-                <div class="divider mt-6">
-                    <span class="divider-text">أو</span>
-                </div>
-                
-                <!-- Google Sign-In Button -->
-                <button onclick="handleGoogleLogin()" class="btn-google w-full py-3 rounded-xl font-bold mb-4 flex items-center justify-center gap-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 48 48">
-                        <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
-                        <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
-                        <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-                        <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
-                    </svg>
-                    <span>تسجيل الدخول بحساب جوجل</span>
-                </button>
-                
-                <!-- Additional Info -->
-                <div class="mt-6 text-center text-sm text-gray-400">
-                    <p>انضم إلى مجتمع المفكرين والمبدعين</p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Main App -->
-        <div id="mainApp" class="h-full w-full hidden flex">
-            <!-- Sidebar -->
-            <aside id="sidebar" class="sidebar-mobile w-64 glass-sidebar h-full flex flex-col shrink-0">
-                <div class="p-6 border-b border-white/10">
-                    <div class="flex items-center gap-3">
-                        <span class="text-3xl">🏛️</span>
-                        <div>
-                            <h1 class="text-xl font-bold gradient-text">متحف الفكر</h1>
-                            <p class="text-xs text-gray-400" id="userRoleDisplay">زائر</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <nav class="flex-1 p-4 space-y-2 overflow-auto scrollbar-hide">
-                    <button onclick="navigateTo('home')" class="sidebar-item active w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="home">
-                        <span class="text-xl">🏠</span>
-                        <span>الرئيسية</span>
-                    </button>
-                    
-                    <button onclick="navigateTo('ideas')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="ideas">
-                        <span class="text-xl">💡</span>
-                        <span>الأفكار</span>
-                    </button>
-                    
-                    <button onclick="navigateTo('comments')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="comments">
-                        <span class="text-xl">💬</span>
-                        <span>التعليقات</span>
-                    </button>
-                    
-                    <button onclick="navigateTo('quotes')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="quotes">
-                        <span class="text-xl">✨</span>
-                        <span>العبارات الملهمة</span>
-                    </button>
-                    
-                    <button onclick="navigateTo('skills')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="skills">
-                        <span class="text-xl">🚀</span>
-                        <span>تطوير المهارات</span>
-                    </button>
-                    
-                    <button onclick="openProfileModal()" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right">
-                        <span class="text-xl">👤</span>
-                        <span>ملفي الشخصي</span>
-                    </button>
-                    
-                    <button onclick="openActivationCodeModal()" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right">
-                        <span class="text-xl">🔑</span>
-                        <span>تفعيل رمز ترقية</span>
-                    </button>
-                    
-                    <button onclick="navigateTo('suggestions')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="suggestions">
-                        <span class="text-xl">📝</span>
-                        <span>الاقتراحات</span>
-                        <span id="suggestionsBadge" class="badge text-xs px-2 py-0.5 rounded-full mr-auto hidden">0</span>
-                    </button>
-                    
-                    <button onclick="openMessageAdminModal()" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right">
-                        <span class="text-xl">📨</span>
-                        <span>مراسلة المدير</span>
-                    </button>
-                    
-                    <button onclick="navigateTo('about')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="about">
-                        <span class="text-xl">ℹ️</span>
-                        <span>عن المشروع</span>
-                    </button>
-                    
-                    <!-- Admin Menu Items -->
-                    <div id="adminMenuItems" class="hidden space-y-2">
-                        <div class="border-t border-white/10 my-4 pt-4">
-                            <p class="text-xs text-gray-500 px-4 mb-2">إدارة النظام</p>
-                        </div>
-                        
-                        <button onclick="navigateTo('members')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="members">
-                            <span class="text-xl">👥</span>
-                            <span>الأعضاء</span>
-                        </button>
-                        
-                        <button onclick="navigateTo('messages')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="messages">
-                            <span class="text-xl">📨</span>
-                            <span>الرسائل</span>
-                            <span id="adminMessagesBadge" class="badge text-xs px-2 py-0.5 rounded-full mr-auto hidden">0</span>
-                        </button>
-                        
-                        <button onclick="navigateTo('codes')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="codes">
-                            <span class="text-xl">🎫</span>
-                            <span>رموز الدعوة</span>
-                        </button>
-                        
-                        <button onclick="navigateTo('analytics')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="analytics">
-                            <span class="text-xl">📊</span>
-                            <span>الإحصائيات</span>
-                        </button>
-                        
-                        <button onclick="navigateTo('settings')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-right" data-page="settings">
-                            <span class="text-xl">⚙️</span>
-                            <span>الإعدادات</span>
-                        </button>
-                    </div>
-                </nav>
-                
-                <div class="p-4 border-t border-white/10">
-                    <div class="glass-card rounded-xl p-3 mb-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center text-2xl shadow-lg avatar-pulse">
-                                <span id="userAvatar">👤</span>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="font-bold text-sm truncate" id="currentUserName">المستخدم</p>
-                                <p class="text-xs text-gray-400 truncate" id="currentUserSpecialty">التخصص</p>
-                                <div id="userStatus" class="text-xs mt-1"></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <button onclick="handleLogout()" class="btn-secondary w-full py-2 rounded-xl text-sm flex items-center justify-center gap-2">
-                        <span>🚪</span>
-                        <span>تسجيل الخروج</span>
-                    </button>
-                </div>
-            </aside>
-            
-            <!-- Main Content -->
-            <main class="flex-1 overflow-auto p-6" id="mainContent">
-                <!-- Home Page -->
-                <div id="homePage" class="page-content animate-fade-in">
-                    <div class="mb-8">
-                        <h2 class="text-3xl font-bold mb-2">مرحباً، <span id="welcomeName">المستخدم</span> 👋</h2>
-                        <p class="text-gray-400">اكتشف عالم الأفكار والإبداع</p>
-                    </div>
-                    
-                    <!-- Stats -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        <div class="stat-card glass-card rounded-2xl p-5 card-hover">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">إجمالي الأفكار</p>
-                                    <p class="text-3xl font-bold mt-1" id="totalIdeas">0</p>
-                                </div>
-                                <span class="text-4xl">💡</span>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card glass-card rounded-2xl p-5 card-hover">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">إجمالي المشاهدات</p>
-                                    <p class="text-3xl font-bold mt-1" id="totalViews">0</p>
-                                </div>
-                                <span class="text-4xl">👁️</span>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card glass-card rounded-2xl p-5 card-hover">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">الأعضاء</p>
-                                    <p class="text-3xl font-bold mt-1" id="totalMembers">0</p>
-                                </div>
-                                <span class="text-4xl">👥</span>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card glass-card rounded-2xl p-5 card-hover">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">التفاعلات</p>
-                                    <p class="text-3xl font-bold mt-1" id="totalInteractions">0</p>
-                                </div>
-                                <span class="text-4xl">💬</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Quote of the Day -->
-                    <div class="quote-card glass-card rounded-2xl p-6 mb-8">
-                        <div class="flex items-start gap-4">
-                            <span class="text-4xl">💭</span>
-                            <div>
-                                <h3 class="text-lg font-bold mb-2 text-pink-300">عبارة اليوم</h3>
-                                <p class="text-xl font-amiri leading-relaxed" id="quoteOfDay">"الفكرة هي البذرة، والعقل هو التربة، والإبداع هو الثمرة"</p>
-                                <p class="text-sm text-gray-400 mt-2" id="quoteAuthor">- من حكم متحف الفكر</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Latest Ideas -->
-                    <div class="mb-8">
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-xl font-bold">أحدث الأفكار</h3>
-                            <button onclick="navigateTo('ideas')" class="text-pink-400 hover:text-pink-300 text-sm">عرض الكل ←</button>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="latestIdeasGrid">
-                            <div class="glass-card rounded-xl p-6 text-center text-gray-400">
-                                <p>لا توجد أفكار حتى الآن</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Top Comments Section -->
-                    <div id="topCommentsSection"></div>
-                </div>
-                
-                <!-- Ideas Page -->
-                <div id="ideasPage" class="page-content hidden animate-fade-in">
-                    <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
-                        <div>
-                            <h2 class="text-3xl font-bold">💡 معرض الأفكار</h2>
-                            <p class="text-gray-400 mt-1">استكشف أفكار المبدعين</p>
-                        </div>
-                        <button id="addIdeaBtn" onclick="openAddIdeaModal()" class="btn-primary px-6 py-3 rounded-xl flex items-center gap-2">
-                            <span>➕</span>
-                            <span>إضافة فكرة</span>
-                        </button>
-                    </div>
-                    
-                    <!-- Search Bar -->
-                    <div class="mb-6">
-                        <div class="relative">
-                            <input type="text" id="searchIdeasInput" class="input-style w-full px-4 py-3 rounded-xl pr-12" placeholder="ابحث في الأفكار...">
-                            <span class="absolute left-4 top-3.5 text-gray-400">🔍</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Filters -->
-                    <div class="flex flex-wrap gap-2 mb-6">
-                        <button onclick="filterIdeas('all')" class="filter-btn active category-tag px-4 py-2 rounded-full text-sm" data-filter="all">الكل</button>
-                        <button onclick="filterIdeas('فلسفة')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="فلسفة">🧠 فلسفة</button>
-                        <button onclick="filterIdeas('تقنية')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="تقنية">💻 تقنية</button>
-                        <button onclick="filterIdeas('أدب')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="أدب">📖 أدب</button>
-                        <button onclick="filterIdeas('علوم')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="علوم">🔬 علوم</button>
-                        <button onclick="filterIdeas('فن')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="فن">🎨 فن</button>
-                        <button onclick="filterIdeas('اجتماع')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="اجتماع">👥 اجتماع</button>
-                    </div>
-                    
-                    <!-- Ideas Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="ideasGrid">
-                        <div class="glass-card rounded-xl p-6 text-center text-gray-400 col-span-full">
-                            <p class="text-5xl mb-4">💭</p>
-                            <p>لا توجد أفكار حتى الآن</p>
-                            <p class="text-sm mt-2">كن أول من يشارك فكرة!</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Comments Page -->
-                <div id="commentsPage" class="page-content hidden animate-fade-in">
-                    <div class="mb-6">
-                        <h2 class="text-3xl font-bold">💬 جميع التعليقات</h2>
-                        <p class="text-gray-400 mt-1">تصفح وإدارة جميع التعليقات</p>
-                    </div>
-                    
-                    <!-- Search Bar -->
-                    <div class="mb-6">
-                        <div class="relative">
-                            <input type="text" id="searchCommentsInput" class="input-style w-full px-4 py-3 rounded-xl pr-12" placeholder="ابحث في التعليقات...">
-                            <span class="absolute left-4 top-3.5 text-gray-400">🔍</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Filters -->
-                    <div class="flex flex-wrap gap-2 mb-6">
-                        <button onclick="filterComments('all')" class="filter-btn active category-tag px-4 py-2 rounded-full text-sm" data-filter="all">الكل</button>
-                        <button onclick="filterComments('latest')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="latest">🆕 الأحدث</button>
-                        <button onclick="filterComments('popular')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="popular">🔥 الأكثر شعبية</button>
-                        <button onclick="filterComments('featured')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="featured">⭐ مميز</button>
-                    </div>
-                    
-                    <!-- Stats -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div class="stat-card glass-card rounded-2xl p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">إجمالي التعليقات</p>
-                                    <p class="text-3xl font-bold mt-1" id="totalComments">0</p>
-                                </div>
-                                <span class="text-4xl">💬</span>
-                            </div>
-                        </div>
-                        <div class="stat-card glass-card rounded-2xl p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">إجمالي الإعجابات</p>
-                                    <p class="text-3xl font-bold mt-1" id="totalLikes">0</p>
-                                </div>
-                                <span class="text-4xl">❤️</span>
-                            </div>
-                        </div>
-                        <div class="stat-card glass-card rounded-2xl p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">متوسط الردود</p>
-                                    <p class="text-3xl font-bold mt-1" id="avgReplies">0</p>
-                                </div>
-                                <span class="text-4xl">🔁</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Comments List -->
-                    <div id="allCommentsList" class="space-y-4">
-                        <!-- سيتم ملؤه بالجافاسكربت -->
-                    </div>
-                </div>
-                
-                <!-- Quotes Page -->
-                <div id="quotesPage" class="page-content hidden animate-fade-in">
-                    <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
-                        <div>
-                            <h2 class="text-3xl font-bold">✨ العبارات الملهمة</h2>
-                            <p class="text-gray-400 mt-1">كلمات تلهم وتحفز</p>
-                        </div>
-                        <button id="addQuoteBtn" onclick="openAddQuoteModal()" class="btn-primary px-6 py-3 rounded-xl flex items-center gap-2">
-                            <span>➕</span>
-                            <span>إضافة عبارة</span>
-                        </button>
-                    </div>
-                    
-                    <!-- Search Bar -->
-                    <div class="mb-6">
-                        <div class="relative">
-                            <input type="text" id="searchQuotesInput" class="input-style w-full px-4 py-3 rounded-xl pr-12" placeholder="ابحث في العبارات...">
-                            <span class="absolute left-4 top-3.5 text-gray-400">🔍</span>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="quotesGrid">
-                        <!-- Quotes will be rendered here -->
-                    </div>
-                </div>
-                
-                <!-- Skills Development Page -->
-                <div id="skillsPage" class="page-content hidden animate-fade-in">
-                    <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
-                        <div>
-                            <h2 class="text-3xl font-bold">🚀 تطوير المهارات</h2>
-                            <p class="text-gray-400 mt-1">أفضل القنوات والكورسات لتطوير مهاراتك</p>
-                        </div>
-                        <button id="addCourseBtn" onclick="openAddCourseModal()" class="btn-primary px-6 py-3 rounded-xl flex items-center gap-2">
-                            <span>➕</span>
-                            <span>إضافة مصدر</span>
-                        </button>
-                    </div>
-                    
-                    <!-- Search Bar -->
-                    <div class="mb-6">
-                        <div class="relative">
-                            <input type="text" id="searchCoursesInput" class="input-style w-full px-4 py-3 rounded-xl pr-12" placeholder="ابحث في المصادر...">
-                            <span class="absolute left-4 top-3.5 text-gray-400">🔍</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Filters -->
-                    <div class="flex flex-wrap gap-2 mb-6">
-                        <button onclick="filterCourses('all')" class="filter-btn active category-tag px-4 py-2 rounded-full text-sm" data-filter="all">الكل</button>
-                        <button onclick="filterCourses('قناة يوتيوب')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="قناة يوتيوب">📺 يوتيوب</button>
-                        <button onclick="filterCourses('كورس أونلاين')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="كورس أونلاين">🎓 كورسات</button>
-                        <button onclick="filterCourses('منصة تعليمية')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="منصة تعليمية">💻 منصات</button>
-                        <button onclick="filterCourses('مقالات')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="مقالات">📝 مقالات</button>
-                        <button onclick="filterCourses('كتب')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="كتب">📚 كتب</button>
-                        <button onclick="filterCourses('بودكاست')" class="filter-btn category-tag px-4 py-2 rounded-full text-sm" data-filter="بودكاست">🎙️ بودكاست</button>
-                    </div>
-                    
-                    <!-- Courses Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="coursesGrid">
-                        <div class="course-card glass-card rounded-xl p-6 text-center text-gray-400">
-                            <p class="text-5xl mb-4">🚀</p>
-                            <p>لا توجد مصادر تعليمية حتى الآن</p>
-                            <p class="text-sm mt-2">أضف أول مصدر تعليمي!</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Suggestions Page -->
-                <div id="suggestionsPage" class="page-content hidden animate-fade-in">
-                    <div class="mb-6">
-                        <h2 class="text-3xl font-bold">📝 صندوق الاقتراحات</h2>
-                        <p class="text-gray-400 mt-1">شاركنا أفكارك لتطوير المتحف</p>
-                    </div>
-                    
-                    <!-- Add Suggestion Form -->
-                    <div class="glass-card rounded-2xl p-6 mb-8">
-                        <h3 class="text-lg font-bold mb-4">إرسال اقتراح جديد</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label for="suggestionType" class="block text-sm text-gray-300 mb-2">نوع الاقتراح</label>
-                                <select id="suggestionType" class="input-style w-full px-4 py-3 rounded-xl text-white">
-                                    <option value="تصميم">🎨 تصميم</option>
-                                    <option value="محتوى">📚 محتوى</option>
-                                    <option value="ميزات">⚡ ميزات جديدة</option>
-                                    <option value="تحسينات">🔧 تحسينات</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="suggestionTitle" class="block text-sm text-gray-300 mb-2">عنوان الاقتراح</label>
-                                <input type="text" id="suggestionTitle" class="input-style w-full px-4 py-3 rounded-xl text-white placeholder-gray-400" placeholder="عنوان موجز">
-                            </div>
-                        </div>
-                        <div class="mb-4">
-                            <label for="suggestionContent" class="block text-sm text-gray-300 mb-2">تفاصيل الاقتراح</label>
-                            <textarea id="suggestionContent" class="input-style w-full px-4 py-3 rounded-xl text-white placeholder-gray-400 h-32 resize-none" placeholder="اشرح اقتراحك بالتفصيل..."></textarea>
-                        </div>
-                        <button onclick="submitSuggestion()" class="btn-primary px-6 py-3 rounded-xl">
-                            <span id="submitSuggestionText">إرسال الاقتراح</span>
-                            <div id="submitSuggestionSpinner" class="loading-spinner hidden mx-auto"></div>
-                        </button>
-                    </div>
-                    
-                    <!-- Suggestions List -->
-                    <div id="suggestionsList" class="space-y-4">
-                        <div class="glass-card rounded-xl p-6 text-center text-gray-400">
-                            <p>لا توجد اقتراحات حتى الآن</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Analytics Page (Admin Only) -->
-                <div id="analyticsPage" class="page-content hidden animate-fade-in">
-                    <div class="mb-6">
-                        <h2 class="text-3xl font-bold">📊 لوحة التحكم والإحصائيات</h2>
-                        <p class="text-gray-400 mt-1">إحصائيات وتقارير تفصيلية للمتحف</p>
-                    </div>
-                    
-                    <!-- Main Stats -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        <div class="stat-card glass-card rounded-2xl p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">الأفكار النشطة</p>
-                                    <p class="text-3xl font-bold mt-1" id="activeIdeas">0</p>
-                                </div>
-                                <span class="text-4xl">💡</span>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card glass-card rounded-2xl p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">الأعضاء الجدد (شهرياً)</p>
-                                    <p class="text-3xl font-bold mt-1" id="newMembers">0</p>
-                                </div>
-                                <span class="text-4xl">👥</span>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card glass-card rounded-2xl p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">التفاعل اليومي</p>
-                                    <p class="text-3xl font-bold mt-1" id="dailyInteractions">0</p>
-                                </div>
-                                <span class="text-4xl">📈</span>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card glass-card rounded-2xl p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-gray-400 text-sm">معدل النمو</p>
-                                    <p class="text-3xl font-bold mt-1" id="growthRate">0%</p>
-                                </div>
-                                <span class="text-4xl">📊</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Charts Section -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                        <!-- Activity Chart -->
-                        <div class="glass-card rounded-2xl p-6">
-                            <h3 class="text-lg font-bold mb-4">📈 النشاط اليومي</h3>
-                            <div class="h-64 flex items-center justify-center text-gray-400">
-                                <p>مخطط النشاط سيظهر هنا</p>
-                            </div>
-                        </div>
-                        
-                        <!-- Categories Distribution -->
-                        <div class="glass-card rounded-2xl p-6">
-                            <h3 class="text-lg font-bold mb-4">🗂️ توزيع الفئات</h3>
-                            <div class="h-64 flex items-center justify-center text-gray-400">
-                                <p>مخطط التوزيع سيظهر هنا</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Recent Activity -->
-                    <div class="glass-card rounded-2xl p-6">
-                        <h3 class="text-lg font-bold mb-4">🔄 النشاط الأخير</h3>
-                        <div id="recentActivity" class="space-y-3">
-                            <div class="flex items-center gap-3 p-3 rounded-lg bg-white/5">
-                                <span>💡</span>
-                                <div class="flex-1">
-                                    <p class="text-sm">تمت إضافة فكرة جديدة</p>
-                                    <p class="text-xs text-gray-400">قبل 5 دقائق</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- About Page -->
-                <div id="aboutPage" class="page-content hidden animate-fade-in">
-                    <!-- محتوى صفحة عن المشروع كما هو -->
-                    <!-- لن أكرره هنا لأنه لم يتغير -->
-                </div>
-                
-                <!-- Members Page (Admin Only) -->
-                <div id="membersPage" class="page-content hidden animate-fade-in">
-                    <div class="mb-6">
-                        <h2 class="text-3xl font-bold">👥 إدارة الأعضاء</h2>
-                        <p class="text-gray-400 mt-1">قائمة جميع الأعضاء المسجلين</p>
-                    </div>
-                    
-                    <!-- Search Bar -->
-                    <div class="mb-6">
-                        <div class="relative">
-                            <input type="text" id="searchMembersInput" class="input-style w-full px-4 py-3 rounded-xl pr-12" placeholder="ابحث في الأعضاء...">
-                            <span class="absolute left-4 top-3.5 text-gray-400">🔍</span>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 gap-6">
-                        <!-- Admins -->
-                        <div class="glass-card rounded-2xl p-6">
-                            <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
-                                <span>👑</span>
-                                <span>المدراء (عددهم: <span id="adminCount">0</span>)</span>
-                            </h3>
-                            <div id="adminMembersList" class="space-y-3">
-                                <p class="text-gray-400 text-center">لا يوجد مدراء</p>
-                            </div>
-                        </div>
-                        
-                        <!-- Premium Members -->
-                        <div class="glass-card rounded-2xl p-6">
-                            <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
-                                <span>💡</span>
-                                <span>الأعضاء المميزون</span>
-                            </h3>
-                            <div id="premiumMembersList" class="space-y-3">
-                                <p class="text-gray-400 text-center">لا يوجد أعضاء مميزون</p>
-                            </div>
-                        </div>
-                        
-                        <!-- Regular Members -->
-                        <div class="glass-card rounded-2xl p-6">
-                            <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
-                                <span>👤</span>
-                                <span>الأعضاء العاديون</span>
-                            </h3>
-                            <div id="regularMembersList" class="space-y-3">
-                                <p class="text-gray-400 text-center">لا يوجد أعضاء</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Messages Page (Admin Only) -->
-                <div id="messagesPage" class="page-content hidden animate-fade-in">
-                    <div class="mb-6">
-                        <h2 class="text-3xl font-bold">📨 رسائل الأعضاء</h2>
-                        <p class="text-gray-400 mt-1">الرسائل وطلبات الرموز من الأعضاء</p>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2">
-                            <!-- Messages List -->
-                            <div id="messagesList" class="space-y-4">
-                                <div class="glass-card rounded-xl p-6 text-center text-gray-400">
-                                    <p>لا توجد رسائل حتى الآن</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="space-y-6">
-                            <!-- Statistics -->
-                            <div class="glass-card rounded-2xl p-6">
-                                <h3 class="text-lg font-bold mb-4">📊 إحصائيات الرسائل</h3>
-                                <div class="space-y-3">
-                                    <div class="flex justify-between items-center py-2 border-b border-white/10">
-                                        <span class="text-gray-400">الرسائل الجديدة</span>
-                                        <span class="font-bold text-yellow-400" id="newMessagesCount">0</span>
-                                    </div>
-                                    <div class="flex justify-between items-center py-2 border-b border-white/10">
-                                        <span class="text-gray-400">طلبات الرموز</span>
-                                        <span class="font-bold text-green-400" id="codeRequestsCount">0</span>
-                                    </div>
-                                    <div class="flex justify-between items-center py-2">
-                                        <span class="text-gray-400">إجمالي الرسائل</span>
-                                        <span class="font-bold" id="totalMessagesCount">0</span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Actions -->
-                            <div class="glass-card rounded-2xl p-6">
-                                <h3 class="text-lg font-bold mb-4">⚡ إجراءات سريعة</h3>
-                                <div class="space-y-3">
-                                    <button onclick="generateCodeForMessage()" class="btn-primary w-full py-3 rounded-xl">🎫 إنشاء رمز جديد</button>
-                                    <button onclick="markAllMessagesAsRead()" class="btn-secondary w-full py-3 rounded-xl">📭 تعيين الكل كمقروء</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Codes Page (Admin Only) -->
-                <div id="codesPage" class="page-content hidden animate-fade-in">
-                    <div class="mb-6">
-                        <h2 class="text-3xl font-bold">🎫 رموز الدعوة والترقية</h2>
-                        <p class="text-gray-400 mt-1">إنشاء وإدارة رموز الترقية</p>
-                    </div>
-                    
-                    <!-- Create Code -->
-                    <div class="glass-card rounded-2xl p-6 mb-8">
-                        <h3 class="text-lg font-bold mb-4">إنشاء رمز جديد</h3>
-                        <div class="flex flex-wrap gap-4">
-                            <input type="text" id="newCodeInput" class="input-style flex-1 px-4 py-3 rounded-xl text-white placeholder-gray-400" placeholder="أدخل الرمز أو اتركه فارغاً للتوليد التلقائي">
-                            <button onclick="generateCode()" class="btn-primary px-6 py-3 rounded-xl">إنشاء رمز</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Codes List -->
-                    <div class="glass-card rounded-2xl p-6">
-                        <h3 class="text-lg font-bold mb-4">الرموز الموجودة</h3>
-                        <div id="codesList" class="space-y-3">
-                            <p class="text-gray-400 text-center">لا توجد رموز</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Settings Page (Admin Only) -->
-                <div id="settingsPage" class="page-content hidden animate-fade-in">
-                    <div class="mb-6">
-                        <h2 class="text-3xl font-bold">⚙️ إعدادات النظام</h2>
-                        <p class="text-gray-400 mt-1">إدارة وتهيئة المتحف</p>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="glass-card rounded-2xl p-6">
-                            <h3 class="text-xl font-bold mb-4">📊 إحصائيات النظام</h3>
-                            <div class="space-y-3">
-                                <div class="flex justify-between items-center py-2 border-b border-white/10">
-                                    <span class="text-gray-400">إجمالي الأفكار</span>
-                                    <span class="font-bold" id="settingsIdeasCount">0</span>
-                                </div>
-                                <div class="flex justify-between items-center py-2 border-b border-white/10">
-                                    <span class="text-gray-400">إجمالي الأعضاء</span>
-                                    <span class="font-bold" id="settingsMembersCount">0</span>
-                                </div>
-                                <div class="flex justify-between items-center py-2 border-b border-white/10">
-                                    <span class="text-gray-400">عدد المدراء</span>
-                                    <span class="font-bold" id="settingsAdminsCount">0</span>
-                                </div>
-                                <div class="flex justify-between items-center py-2 border-b border-white/10">
-                                    <span class="text-gray-400">الرسائل غير المقروءة</span>
-                                    <span class="font-bold" id="settingsUnreadMessages">0</span>
-                                </div>
-                                <div class="flex justify-between items-center py-2">
-                                    <span class="text-gray-400">رموز الترقية النشطة</span>
-                                    <span class="font-bold" id="settingsCodesCount">0</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="glass-card rounded-2xl p-6">
-                            <h3 class="text-xl font-bold mb-4">🛠️ أدوات الإدارة</h3>
-                            <div class="space-y-4">
-                                <button onclick="exportData()" class="btn-secondary w-full py-3 rounded-xl flex items-center justify-center gap-2">
-                                    <span>📥</span>
-                                    <span>تصدير البيانات</span>
-                                </button>
-                                <button onclick="confirmClearData()" class="w-full py-3 rounded-xl bg-red-500/20 border border-red-500/50 text-red-300 hover:bg-red-500/30 transition-all flex items-center justify-center gap-2">
-                                    <span>🗑️</span>
-                                    <span>حذف جميع البيانات</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </div>
-    </div>
-    
-    <!-- Toast Container -->
-    <div id="toastContainer" class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 space-y-2"></div>
-    
-    <script>
-        // Firebase configuration will be added in JS file
-    </script>
-</body>
-</html>
